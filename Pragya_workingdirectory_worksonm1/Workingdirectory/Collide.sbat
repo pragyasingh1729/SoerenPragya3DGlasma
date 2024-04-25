@@ -1,0 +1,13 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=Collide
+#SBATCH --account=lappi
+#SBATCH --partition=small
+
+#SBATCH --time=20:30:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=40
+
+module add fftw/3.3.10-mpi-omp gsl
+
+./SUNcSolver.exe -Nx 128 -Ny 128 -Nz 1024 -o Symmetric/output/

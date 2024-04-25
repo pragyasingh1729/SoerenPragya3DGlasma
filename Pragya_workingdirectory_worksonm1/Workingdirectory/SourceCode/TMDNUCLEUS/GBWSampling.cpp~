@@ -1,0 +1,221 @@
+
+class Nucleus{
+	
+	// PROTON Bg IN fm^2 //
+	const double BG=4.0*0.197*0.197;
+	
+	//T(x,y,z)=1/(2\pi*BG)^(1/2)exp(-x_i^2-0.5*gamma^2z^2/2BG) //
+	//** Normalized to give \tilde{T(0,0}=A_\perp              //
+	
+protected:
+	
+	// ATOMIC NUMBER //
+	int A;
+	
+	// WOOD SAXON PARAMETERS //
+	double NucleusRadius;
+	double SurfaceDiffusiveness;
+	double gamma;
+	
+	// SAMPLE A NUCLEON POSITION //
+	void GlauberSamplePosition(double *x){
+		
+		int Accept=0;
+		
+		while(Accept==0){
+			
+			// SET RANDOM POSITIONS //
+			x[0]=8.0*NucleusRadius*(RandomNumberGenerator::rng()-0.5);
+			x[1]=8.0*NucleusRadius*(RandomNumberGenerator::rng()-0.5);
+			x[2]=8.0*NucleusRadius*(RandomNumberGenerator::rng()-0.5);
+			
+			// GET ACCEPTANCE PROBABILITY //
+			double xR=sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]);
+			double Probability=(1.0+exp(-NucleusRadius/SurfaceDiffusiveness))/(1.0+exp((xR-NucleusRadius)/SurfaceDiffusiveness));
+			
+			// CHECK ACCEPTANCE CRITERION //
+			if(RandomNumberGenerator::rng()<Probability){
+				Accept=1;
+			}
+		}		
+	}
+	
+	// NUCLEON POSITIONS //
+	double **x; double xBar[3];
+	
+	// SAMPLE NUCLEON POSITIONS FROM WOOD SAXON DISTRIBUTION //
+	void SetNucleonPositions(){
+		
+		// ALLOCATE POSITION ARRAY //
+		x=new double*[A];
+		
+		if(A==1){
+			
+			x[0][0]=0.0; x[0][1]=0.0; x[0][2]=0.0;
+		}
+		
+		else{
+			for(int n=0;n<A;n++){
+				x[n]=new double[3];
+			}
+		}
+		
+		//////////////////////////////////////
+		// SAMPLE POSITIONS OF EACH NUCLEON //
+		//////////////////////////////////////
+		
+		// GLAUBER MODEL FOR A>3 //
+		for(int n=0;n<A;n++){
+			// GLAUBER SAMPLING //
+			GlauberSamplePosition(x[n]);
+			
+		}
+	
+		// GET CENTER OF MASS //
+		xBar[0]=0.0; xBar[1]=0.0; xBar[2]=0.0;
+		
+		for(int n=0;n<A;n++){
+			xBar[0]+=x[n][0]/double(A);   xBar[1]+=x[n][1]/double(A);   xBar[2]+=x[n][2]/double(A);
+		}
+		
+		// SHIFT CENTER OF MASS AND IMPACT PARAMETER //
+		for(int n=0;n<A;n++){
+			x[n][0]-=xBar[0];   x[n][1]-=xBar[1];   x[n][2]-=xBar[2];
+			
+		}
+		
+		xBar[0]=0.0; xBar[1]=0.0; xBar[2]=0.0;
+		
+	}
+	
+	
+	// SINGLE NUCLEON THICKNESS //
+	double ComputeNucleonThickness(double x,double y,double xCenter,double yCenter){
+		
+		double SqrDistance=(x-xCenter)*(x-xCenter)+(y-yCenter)*(y-yCenter);
+		return exp(-0.5*SqrDistance/BG)/(2.0*M_PI*BG);
+		
+	}
+	
+	// Tmoving(x',y',z')=gamma*Trest(x,y,\gamma*z) //
+	
+	// SINGLE NUCLEON PROFILE //
+	double ComputeNucleonProfile(double x,double y,double z,double xCenter,double yCenter,double zCenter){
+		
+		double SqrDistance=(x-xCenter)*(x-xCenter)+(y-yCenter)*(y-yCenter)+SQR(gamma*z-zCenter);
+		return gamma*exp(-0.5*SqrDistance/BG)/sqrt(2.0*M_PI*BG);
+		
+	}
+	
+	
+public:
+	
+	// CREATE OUTPUT OF NUCLEON POSITIONS //
+	void OutputNucleonPositions(std::string fname){
+		
+		// OPEN OUTPUT STREAM //
+		std::ofstream OutStream;
+		
+		OutStream.open(fname);
+		
+		// CREATE OUTPUT //
+		OutStream << "#NUCLEON POSITIONS" << std::endl;
+		
+		for(int n=0;n<A;n++){
+			OutStream << x[n][0] << " " << x[n][1] << " " << x[n][2] << std::endl;
+		}
+		
+		// CLOSE OUTPUT STREAM //
+		OutStream.close();
+	}
+	
+	// GET NUCLEON THICKNESS //
+	double GetThickness(double x,double y){
+		
+		double TValue=0.0;
+		
+		// ADD CONTRIBUTION FROM ALL NUCLEONS //
+		for(int n=0;n<A;n++){
+			TValue+=ComputeNucleonThickness(x,y,this->x[n][0],this->x[n][1]);
+		}
+		
+		return TValue;
+	}
+	
+	// GET NUCLEON PROFILE //
+	double GetProfile(double x,double y,double z){
+		
+		double TValue=0.0;
+		
+		// ADD CONTRIBUTION FROM ALL NUCLEONS //
+		for(int n=0;n<A;n++){
+			TValue+=ComputeNucleonProfile(x,y,z,this->x[n][0],this->x[n][1],this->x[n][2]);
+		}
+		
+		return TValue;
+	}
+	
+
+	// CREATE OUTPUT OF NUCLEUS PROFILE //
+	void OutputProfile(std::string fname,int Nx,int Ny,int Nz,char D){
+		
+		std::ofstream OutStream;
+		OutStream.open(fname);
+		
+		for(int iz=0;iz<Nz;iz++){
+			for(int iy=0;iy<Ny;iy++){
+				for(int ix=0;ix<Nx;ix++){
+					
+					double xInFm=(ix-Lattice::N[0]/2)*Parameters::aXInFm;
+					double yInFm=(iy-Lattice::N[1]/2)*Parameters::aYInFm;
+					
+					double zInFm;
+					
+					if(D=='L'){
+						
+						zInFm=(iz-725)*Parameters::aZInFm;
+//						zInFm=(iz-(Lattice::N[2]/4-1))*Parameters::aZInFm;
+					}
+					
+					if(D=='R'){
+						
+						zInFm=(iz-1085)*Parameters::aZInFm;
+
+//						zInFm=(iz-1261)*Parameters::aZInFm;
+//					    zInFm=(iz-3*Lattice::N[2]/4)*Parameters::aZInFm;
+
+
+					}
+					OutStream << ix << " " << iy << " "<< iz << " "<< this->GetProfile(xInFm,yInFm,zInFm) << std::endl;
+				}
+			}
+			
+		}
+		OutStream.close();
+	}
+	
+	// CONSTRUCTOR //
+	Nucleus(int AtomicNumber){
+		
+		// SET NUCLEUS SIZE //
+		A=AtomicNumber; NucleusRadius=NuclearData::GetRadius(AtomicNumber); SurfaceDiffusiveness=NuclearData::GetSurface(AtomicNumber);
+		gamma=Parameters::CoMEnergy*0.197/2.0;
+		
+		// SET NUCLEON POSITIONS //
+		SetNucleonPositions();
+		
+	}
+	
+	
+	// DESTRUCTOR //
+	~Nucleus(){
+		
+		for(int n=0;n<A;n++){
+			delete[] x[n];
+		}
+		
+		delete[] x;
+		
+	}
+	
+};

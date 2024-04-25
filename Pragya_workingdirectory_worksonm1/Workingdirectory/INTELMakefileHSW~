@@ -1,0 +1,2 @@
+all:
+	CC -std=c++11 -xCORE-AVX2 -o CoMSUNcSolver.exe SourceCode/SUNcSolver.cpp ${GSL} -I${FFTW_INC} -L${FFTW_DIR} -lgsl -lfftw3 -lfftw3_omp -qopenmp

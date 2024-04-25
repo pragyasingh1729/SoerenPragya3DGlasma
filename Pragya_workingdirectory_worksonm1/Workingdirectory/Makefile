@@ -1,0 +1,2 @@
+all:
+	clang++ -march=armv8-a+fp+simd+crypto+crc -Wall -Wno-delete-non-virtual-dtor -Wno-long-long -pedantic-errors SourceCode/SUNcSolver.cpp -o SU3Solver_chk.exe -O3 -I/opt/homebrew/include  -L/opt/homebrew/lib -L/opt/homebrew/Cellar/gsl/2.7.1/lib -L/opt/homebrew/lib -lmpi -lstdc++ -lgsl -lgslcblas -lm -fopenmp -lfftw3_threads -lfftw3
